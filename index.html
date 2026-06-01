@@ -645,43 +645,35 @@ function importData(event) {
 
 // ==================== REMOTE SYNC ====================
 function fetchRemoteData() {
-  remoteUrl = localStorage.getItem(REMOTE_URL_KEY);
-  if (remoteUrl) {
-    doRemoteFetch(remoteUrl);
-  } else {
-    openUrlModal();
-  }
+  openUrlModal();
 }
 
 function saveRemoteUrl() {
   var url = document.getElementById('urlInput').value.trim();
   if (!url) { toast('请输入 URL'); return; }
-  remoteUrl = url;
   localStorage.setItem(REMOTE_URL_KEY, url);
+  remoteUrl = url;
   closeUrlModal();
+  toast('地址已保存，正在加载...');
   doRemoteFetch(url);
 }
 
 function doRemoteFetch(url) {
-  toast('正在从云端加载...');
   var btn = document.getElementById('syncBtn');
   btn.textContent = '加载中...';
   btn.disabled = true;
 
-  // Auto-convert GitHub blob URL to raw URL
   var actualUrl = url;
-  var ghMatch = url.match(/^https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/blob\/(.+)$/);
-  if (ghMatch) {
-    actualUrl = 'https://raw.githubusercontent.com/' + ghMatch[1] + '/' + ghMatch[2] + '/' + ghMatch[3];
-  }
+  var m = url.match(/^https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/blob\/(.+)$/);
+  if (m) { actualUrl = 'https://raw.githubusercontent.com/' + m[1] + '/' + m[2] + '/' + m[3]; }
 
   fetch(actualUrl, { cache: 'no-cache' })
     .then(function(res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status + ' - 请确认链接正确');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();
     })
     .then(function(data) {
-      if (!data.items || !Array.isArray(data.items)) throw new Error('数据格式错误');
+      if (!data.items || !Array.isArray(data.items)) throw new Error('格式错误');
       items = data.items;
       suppliers = data.suppliers || [];
       saveItems();
@@ -709,7 +701,7 @@ function doRemoteFetch(url) {
 
 function changeRemoteUrl() { openUrlModal(); }
 function openUrlModal() {
-  document.getElementById('urlInput').value = remoteUrl || '';
+  document.getElementById('urlInput').value = localStorage.getItem(REMOTE_URL_KEY) || '';
   document.getElementById('urlModal').classList.add('show');
   document.getElementById('urlInput').focus();
 }
@@ -780,42 +772,8 @@ document.getElementById('syncBtn').addEventListener('contextmenu', function(e) {
 // ==================== INIT ====================
 loadItems();
 loadSuppliers();
-remoteUrl = localStorage.getItem(REMOTE_URL_KEY) || '';
-  var startupUrl = remoteUrl;
-  if (remoteUrl) {
-    var m = remoteUrl.match(/^https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/blob\/(.+)$/);
-    if (m) { startupUrl = 'https://raw.githubusercontent.com/' + m[1] + '/' + m[2] + '/' + m[3]; }
-  }
 openImgDb().then(function() {
-  if (remoteUrl) {
-    var ctrl = new AbortController();
-    var timer = setTimeout(function() { ctrl.abort(); render(); }, 5000);
-    fetch(startupUrl, { signal: ctrl.signal, cache: 'no-cache' })
-      .then(function(res) { if (!res.ok) throw new Error(''); return res.json(); })
-      .then(function(data) {
-        clearTimeout(timer);
-        if (data.items && Array.isArray(data.items)) {
-          items = data.items;
-          suppliers = data.suppliers || [];
-          saveItems();
-          saveSuppliers();
-          var imgs = data.images || {};
-          var keys = Object.keys(imgs);
-          if (keys.length > 0) {
-            clearImages().then(function() {
-              var d = 0;
-              keys.forEach(function(k) {
-                saveImage(k, imgs[k]).then(function() { d++; });
-              });
-            });
-          }
-          render();
-        } else { render(); }
-      })
-      .catch(function() { clearTimeout(timer); render(); });
-  } else {
-    render();
-  }
+  render();
 });
 </script>
 </body>
